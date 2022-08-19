@@ -1,36 +1,33 @@
---INSERT dmTPES_DOCU (DOCU_CLAVE, DOCU_INFO) VALUES ( 'dmTPES_spEnvioMailsNuevosPedidos',
---'
---/*
---* @brief	Obtiene los destinatarios por el vendedor asociado al cliente y los nuevos pedidos. Genera los mensajes.
---* @details	Por auditoria se detecta el alta de pedidos en Plataforma, y genere los mails solicitados,
---	uno por cada pedido, y los envía a los vendedores, de acuerdo al esquema seleccionado (vendedor de cliente).
---	Construye las grillas e implementa las plantillas del modelo 1.
---	Invoca a los scripts del modulo para procesar los destinatarios y los parametros del mensaje.
---	No usa archivos adjuntos.
---* @params	@TAREA_PROGRAMADA. Selecciona el número de tarea a realizar.	
---* @params	@FECHA	Opcional. Asigna una fecha que el store usara para filtrar los vencimientos. Si no se indica nada, se tomara la fecha actual.
---*/
---')
---IF OBJECT_ID('dmTPES_spEnvioMailsNuevosPedidos') IS NOT NULL
---BEGIN
---	DROP PROCEDURE dmTPES_spEnvioMailsNuevosPedidos;
---END;
---GO
---CREATE PROC dmTPES_spEnvioMailsNuevosPedidos @TAREA_PROGRAMADA INT, @FECHA DATETIME = NULL
---AS
---BEGIN
---Testing: 
-		 DECLARE @TAREA_PROGRAMADA INT 
-		 SET @TAREA_PROGRAMADA = 19
-		 DECLARE @FECHA DATETIME
+INSERT dmTPES_DOCU (DOCU_CLAVE, DOCU_INFO) VALUES ( 'dmTPES_spEnvioMailsNuevosPedidos',
+'
+/*
+* @brief	Obtiene los destinatarios por el vendedor asociado al cliente y los nuevos pedidos. Genera los mensajes.
+* @details	Por auditoria se detecta el alta de pedidos en Plataforma, y genere los mails solicitados,
+	uno por cada pedido, y los envía a los vendedores, de acuerdo al esquema seleccionado (vendedor de cliente).
+	Construye las grillas e implementa las plantillas del modelo 1.
+	Invoca a los scripts del modulo para procesar los destinatarios y los parametros del mensaje.
+	No usa archivos adjuntos.
+* @params	@TAREA_PROGRAMADA. Selecciona el número de tarea a realizar.	
+* @params	@FECHA	Opcional. Asigna una fecha que el store usara para filtrar los vencimientos. Si no se indica nada, se tomara la fecha actual.
+*/
+')
+IF OBJECT_ID('dmTPES_spEnvioMailsNuevosPedidos') IS NOT NULL
+BEGIN
+	DROP PROCEDURE dmTPES_spEnvioMailsNuevosPedidos;
+END;
+GO
+CREATE PROC dmTPES_spEnvioMailsNuevosPedidos @TAREA_PROGRAMADA INT, @AUDITORIA_DESDE INT
+AS
+BEGIN
+Testing: 
+		 --DECLARE @TAREA_PROGRAMADA INT 
+		 --SET @TAREA_PROGRAMADA = 19
+		 --DECLARE @FECHA DATETIME
 
 	EXEC dmTPES_spPrepararTareaProgramadaEstandar @TAREA_PROGRAMADA
 	
 	--EXTRAIGO FILTROS GENERALES Y DATOS UTILES
-	SET @FECHA = ISNULL(@FECHA, GETDATE())
-
-	DECLARE @DIVISIONES NVARCHAR(MAX) = (SELECT dbo.dmTPES_fnObtenerDivisionesListado(@TAREA_PROGRAMADA, DEFAULT))
-	
+	DECLARE @DIVISION INT = ISNULL((SELECT PARM_VALOR FROM dmTPES_PARM WHERE PARM_CLAVE = '{parameter::divisiones}' AND PARM_CODIGO_TPRG = @TAREA_PROGRAMADA ),0)
 
 	DECLARE @TEMPLATE_MAIN NVARCHAR(MAX) = (SELECT PARM_VALOR FROM dbo.dmTPES_PARM WHERE PARM_CODIGO_TPRG = @TAREA_PROGRAMADA AND PARM_CLAVE = '{template::main}' )
 	DECLARE @TEMPLATE_TABLE NVARCHAR(MAX) = (SELECT dbo.dmTPES_fnObtenerPlantillaDeTabla(@TAREA_PROGRAMADA,1) )
@@ -48,6 +45,7 @@
 	--A PARTIR DE ESTE DETALLE SE DEDUCEN LOS DESTINATARIOS, QUE PUEDEN O NO TENER CUENTAS DE DESTINO VALIDAS
 	--MAS ADELANTE LA TABLA DE DESTINATARIOS DETERMINARA LOS REGISTROS DEL CUERPO DE MENSAJE QUE SE UTILIZARAN
 	--INICIO LAS CONSULTAS PRINCIPALES PARA ARMAR EL DETALLE DE LA GRILLA CON FACTURACIONES
+			
 	DECLARE @NP TABLE (
 		SUJETO INT,
 		COD_CLIENTE		INT,
@@ -85,19 +83,17 @@
 		,NPCA_IMP_BRU_ORI 
 	FROM VENT_NPCA
 	INNER JOIN CCOB_CLIE ON NPCA_CLIENTE = CLIE_CLIENTE
-	INNER JOIN VENT_NPVE ON NPVE_TIPO_NPCA = NPCA_TIPO_NPCA
-						AND NPVE_DIVISION_NPCA = NPCA_DIVISION_NPCA
-						AND NPVE_NUMERO_NPCA = NPCA_NUMERO_NPCA
-	INNER JOIN SIST_VEND ON NPVE_VENDEDOR = VEND_VENDEDOR
-	INNER JOIN ACCT_PERS ON VEND_VENDEDOR = PERS_VENDEDOR
+	INNER JOIN SIST_VEND ON CLIE_VENDEDOR = VEND_VENDEDOR
+	INNER JOIN ACCT_PERS ON PERS_VENDEDOR = VEND_VENDEDOR
 	INNER JOIN VENT_AUCV ON AUCV_DIVISION = NPCA_DIVISION_NPCA
-						AND AUCV_TIPO_COMP = NPCA_TIPO_NPCA
-						AND AUCV_NUMERO_COMP = NPCA_NUMERO_NPCA
-						AND AUCV_CLIENTE = CLIE_CLIENTE
+	AND AUCV_TIPO_COMP = NPCA_TIPO_NPCA
+	AND AUCV_NUMERO_COMP = NPCA_NUMERO_NPCA
 	INNER JOIN SEGU_AUDI ON AUCV_AUDITOR = AUDI_AUDITOR
 	WHERE AUDI_INSERTA = 1
-	AND NPCA_CLIENTE IN (85,87)
-	AND NPCA_NUMERO_NPCA IN (98,105,118,249)
+	AND NPCA_DIVISION_NPCA IN (@DIVISION)  
+	AND AUDI_AUDITOR >= @AUDITORIA_DESDE
+	--:_UltimoNumeroAuditoriaDesde
+	
 	
 	--Testing:
 	--SELECT * FROM @NP
@@ -135,31 +131,31 @@
 
 
 	EXEC dbo.dmTPES_spAplicarParametrosDeDestinatarios @TAREA_PROGRAMADA
-	
+	--select * from dmTPES_MAIL 
 
+
+	--ACTUALIZO LAS TAGS QUE SE ENCUENTREN EN LOS DATOS DEL MAIL
 	UPDATE DEST
 		SET
 		MAIL_PARA = 
 			REPLACE(
 				MAIL_PARA,
-				'{tag::mail-vendedor}', ISNULL(PERS_EMAIL, '') )
+				'{tag::mail-vendedor}', ISNULL(EMAIL_VENDEDOR, '') )
 		,MAIL_CC =
 			REPLACE(			
 				MAIL_CC,			
-				'{tag::mail-vendedor}', ISNULL(PERS_EMAIL, '') )
+				'{tag::mail-vendedor}', ISNULL(EMAIL_VENDEDOR, '') )
 		,MAIL_CCO =
 			REPLACE(			
 				MAIL_CCO,				
-				'{tag::mail-vendedor}', ISNULL(PERS_EMAIL, '') )
+				'{tag::mail-vendedor}', ISNULL(EMAIL_VENDEDOR, '') )
 		,MAIL_ASUNTO = 
 			REPLACE(		
 				MAIL_ASUNTO,			
-				'{tag::mail-vendedor}', ISNULL(PERS_EMAIL, '') )
+				'{tag::mail-vendedor}', ISNULL(EMAIL_VENDEDOR, '') )
 	FROM dmTPES_MAIL DEST
 	INNER JOIN @NP
-		ON MAIL_CLIENTE = COD_CLIENTE	
-    INNER JOIN ACCT_PERS 
-		ON PERS_VENDEDOR = COD_VENDEDOR
+		ON MAIL_CLIENTE = COD_CLIENTE	  
 	WHERE MAIL_CODIGO_TPRG = @TAREA_PROGRAMADA
 
 	--TESTING:
@@ -175,6 +171,8 @@
 
 	--GENERO EL RENGLON HTML PARA CADA FACTURA DE CADA CLIENTE
 	--CONSISTE EN UNA LINEA HTML COMPUESTA POR UN ELEMENTO <tr></tr> QUE CONTIENE EN SUS COLUMNAS LOS VALORES DE UNA FACTURA
+	
+
 	DECLARE @FILAS_HTML TABLE (
 		FILA_CLIENTE INT
 		,FILA_HTML NVARCHAR(MAX)
@@ -183,8 +181,8 @@
 		FILA_CLIENTE
 		,FILA_HTML
 	)
-	SELECT 
-		COD_CLIENTE,
+	SELECT DISTINCT
+		SUJETO,
 		CAST(
 			REPLACE(
 			REPLACE(
@@ -194,16 +192,18 @@
 			REPLACE(
 			REPLACE(
 			REPLACE( @TEMPLATE_ROW
-			,'{data::fecha-emi}103', CONVERT(VARCHAR, FECHA_EMI , 103) )
-			,'{data::nombre-cliente}', NOMBRE_CLIE )
-			,'{data::cod-cliente}', CONVERT(VARCHAR, COD_CLIENTE) )
-			,'{data::tipo-np}', TIPO_NP )
-			,'{data::nro-np}', NUMERO_NP )
-			,'{data::imp-tot-sim}', CONVERT(VARCHAR, CONVERT(MONEY, IMPORTE)) )			
+			,'{data::cod-cliente}', ISNULL(CONVERT(VARCHAR, COD_CLIENTE),'') )
+			,'{data::nombre-cliente}', ISNULL(NOMBRE_CLIE,'') )
+			,'{data::fecha-emi}103', ISNULL(CONVERT(VARCHAR, FECHA_EMI , 103),'') )
+			,'{data::tipo-np}', ISNULL(TIPO_NP,'') )
+			,'{data::nro-np}', ISNULL(CONVERT(VARCHAR,NUMERO_NP),'') )
+			,'{data::imp-tot-sim}', ISNULL(CONVERT(VARCHAR, CONVERT(MONEY, IMPORTE)),'') )			
 			,CHAR(13), '')
 			,CHAR(10), '')
 		AS NVARCHAR(MAX))	AS FILAS_HMTL
 	FROM @NP
+
+	--SELECT * FROM @FILAS_HTML
 
 	--CONCATENO CADA RENGLON HTML PARA GENERAR UNA GRILLA HTML PARA CADA CLIENTE
 	--SE REALIZA UN AGRUPAMIENTO DE LOS RENGLONES HTML, DE TAL FORMA QUE TODAS LAS CADENAS TIPO <tr>/<tr> QUEDAN CONCATENADAS EN UNA UNICA CADENA POR CLIENTE
@@ -229,6 +229,9 @@
 	FROM @FILAS_HTML AS A
 	GROUP BY FILA_CLIENTE
 
+	--TESTING
+	--SELECT * FROM @GRILLA_HTML
+
 	--GENERO UN UNICO MENSAJE PARA CADA DESTINATARIO INCORPORANDO LA GRILLA
 	--UTILIZANDO TEMPLATE_MAIN Y LAS FILAS CONCATENADAS EN EL PASO ANTERIOR,
 	--INCORPORA LA CADENA DE LAS FILAS DE FACTURACION COMO DETALLE DE LA TABLA HTML DEFINIDA EN TEMPLATE_MAIN
@@ -237,7 +240,7 @@
 		SET MAIL_CUERPO = CAST( REPLACE( @TEMPLATE_MAIN, '{template::rows-1}', GRIL_HTML)	AS NVARCHAR(MAX))
 	FROM dmTPES_MAIL MAIL
 	INNER JOIN @GRILLA_HTML
-		ON GRIL_CLIENTE = MAIL_CLIENTE
+		ON GRIL_CLIENTE = MAIL_SUJETO
 	WHERE MAIL_CODIGO_TPRG = @TAREA_PROGRAMADA
 
 	--TAMBIEN INCORPORO EL ENCABEZADO Y PIE DE PAGINA DISPONIBLES
@@ -254,12 +257,12 @@
 	EXEC dbo.dmTPES_spAplicarParametrosDeMensaje @TAREA_PROGRAMADA
 
 	--TESTING:
-	SELECT * FROM DMTPES_MAIL 
+	--SELECT * FROM DMTPES_MAIL 
 
 	--CARGO LOS MENSAJES EN LA BANDEJA DEL SISTEMA
 	--Testing:
 	--		comentar para no aplicar el envío de mails
---	EXEC dbo.dmTPES_spCargarMensajesEnBandejaDeSalida @TAREA_PROGRAMADA
+	EXEC dbo.dmTPES_spCargarMensajesEnBandejaDeSalida @TAREA_PROGRAMADA
 
---END
---GO
+END
+GO

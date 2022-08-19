@@ -1,10 +1,10 @@
-DECLARE @CODIGO_TAREA_PROGRAMADA INT = 19		--Codigo de la tarea programada que desea configurar
+DECLARE @CODIGO_TAREA_PROGRAMADA INT = <<Ingresar número de tarea programada>>		--Codigo de la tarea programada que desea configurar
 
 --FILTROS PARAMETRIZABLES DE LA TAREA PROGRAMADA
-DECLARE @COMPROBANTES_DIVISIONES NVARCHAR(MAX) = '1,2'			--Codigo de divisiones, separadas por una coma, de los comprobantes que la tarea programda debe considerar (si esta vacio '' tomara todas las divisiones)
+DECLARE @COMPROBANTES_DIVISION INT = 1			--Codigo de división
 
-SELECT * FROM dmTPES_PARM
-WHERE PARM_CODIGO_TPRG = 19
+--Testing
+--SELECT * FROM dmTPES_PARM WHERE PARM_CODIGO_TPRG = 19
 
 -- PARAMETROS PARA CONFIGURAR ASPECTOS DEL DESTINATARIO
 -- La tarea programada acepta el uso de tags para auto completar los campos del destinatario con informacion que se genera durante la construccion del mensaje
@@ -13,7 +13,7 @@ WHERE PARM_CODIGO_TPRG = 19
 -- TAGS DISPONIBLES PARA...
 --	DESTINATARIOS_PARA
 --	DESTINATARIOS_CC
-DECLARE @ASUNTO VARCHAR(150) = 'INFORME DE NUEVOS PEDIDOS'
+DECLARE @ASUNTO VARCHAR(150) = 'ALTA DE PEDIDOS'
 DECLARE @DESTINATARIOS_PARA VARCHAR(3000) = '{tag::mail-vendedor}'
 DECLARE @DESTINATARIOS_CC VARCHAR(3000) = ''
 DECLARE @DESTINATARIOS_CCO VARCHAR(3000) = ''
@@ -197,7 +197,7 @@ DECLARE @COLUMNAS XML = '
 </Columna>
 <Columna>
 	<Encabezado>
-		Fecha de emision
+		Fecha de emisión
 	</Encabezado>
 	<Contenido>
 		{data::fecha-emi}
@@ -234,8 +234,7 @@ DECLARE @COLUMNAS XML = '
 	<Contenido>
 		{data::tipo-np}
 	</Contenido>
-	<Formato_Contenido>
-		
+	<Formato_Contenido>		
 	</Formato_Contenido>
 	<Estilo_Encabezado>
 		width:				100px;
@@ -256,7 +255,7 @@ DECLARE @COLUMNAS XML = '
 		border-top-width:	1px;
 		color:				rgb(0, 0, 0);
 		background-color:	rgb(255, 255, 255);
-		text-align:			right;
+		text-align:			center;
 	</Estilo_Contenido>
 </Columna>
 <Columna>
@@ -266,8 +265,7 @@ DECLARE @COLUMNAS XML = '
 	<Contenido>
 		{data::nro-np}
 	</Contenido>
-	<Formato_Contenido>
-		
+	<Formato_Contenido>		
 	</Formato_Contenido>
 	<Estilo_Encabezado>
 		width:				100px;
@@ -288,7 +286,7 @@ DECLARE @COLUMNAS XML = '
 		border-top-width:	1px;
 		color:				rgb(0, 0, 0);
 		background-color:	rgb(255, 255, 255);
-		text-align:			right;
+		text-align:			center;
 	</Estilo_Contenido>
 </Columna>
 <Columna>
@@ -296,7 +294,7 @@ DECLARE @COLUMNAS XML = '
 		Importe total sin impuestos
 	</Encabezado>
 	<Contenido>
-		{data::imp-tot-sim}
+		$ {data::imp-tot-sim}
 	</Contenido>
 	<Formato_Contenido>
 	</Formato_Contenido>
@@ -421,7 +419,7 @@ BEGIN TRY
 	DELETE dmTPES_COLS WHERE COLS_CODIGO_TPRG = @CODIGO_TAREA_PROGRAMADA
 
 	SET @RESUME = @RESUME + CHAR(13)+CHAR(10) + '>> Estableciendo parametros de la TPES'
-	INSERT INTO dmTPES_PARM ( PARM_CODIGO_TPRG, PARM_CLAVE, PARM_VALOR ) VALUES (@CODIGO_TAREA_PROGRAMADA, '{parameter::divisiones}', @COMPROBANTES_DIVISIONES)
+	INSERT INTO dmTPES_PARM ( PARM_CODIGO_TPRG, PARM_CLAVE, PARM_VALOR ) VALUES (@CODIGO_TAREA_PROGRAMADA, '{parameter::divisiones}', @COMPROBANTES_DIVISION)
 	
 	SET @RESUME = @RESUME + CHAR(13)+CHAR(10) + '>> Estableciendo parametros del destinatario'
 	INSERT INTO dmTPES_PARM ( PARM_CODIGO_TPRG, PARM_CLAVE, PARM_VALOR ) VALUES (@CODIGO_TAREA_PROGRAMADA, '{parameter::asunto}', @ASUNTO)
