@@ -1,17 +1,11 @@
 # CHANGELOG
 
-## 23/08/2021 Hotfix v0.1.1
+## 19/08/2022 Release 1.0.0
 
-Incorporo una sección para artefactos.
-Desdoblo la sección de actualizaciones en dos, una para actualizaciones con solisitudes y otras sin solicitudes.
+La solicitud envía un correo a los vendedores con la información de los pedidos registrados para sus clientes.
 
-## 20/08/2021 Release v0.1.0
+El mail tiene:
+cliente código y nombre / fecha / tipo y numero de pedido / importe total sin impuestos
 
-Primera version de la plantilla para proyectos SQL.
-
-## 20/08/2021 Feature Inicializacion
-
-Inicialización de la estructura de archivos y directorios basicos para empezar a trabajar con cualquier proyecto SQL simple.
-Se preparan los archivos de documentación
-Se arma una estructura de carpetas
-Se preparan los archivos git
+La tarea considera solo los pedidos de una división a determinar o poder ingresar como filtro.
+El mail le llegará al vendedor asociado al cliente / cargado en la nota de pedido.
